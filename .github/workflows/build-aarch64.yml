@@ -1,33 +1,54 @@
 name: Docker Image CI
-
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
-
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Check out docker/compose
-        uses: actions/checkout@v2
-        with:
-          repository: docker/compose
-
+      # - name: Check out docker/compose
+      #   uses: actions/checkout@v2
+      #   with:
+      #     repository: docker/compose
+      #     path: compose
 
       - name: install docker
         uses: docker-practice/actions-setup-docker@master
+        # this will run and buildx
+        # docker run --rm --privileged ghcr.io/dpsigs/tonistiigi-binfmt:latest --install all
 
-      - name: build
+      - name: build docker-compose 
+        id: build
         run: |
-          ls -l; ls -l ../
+          ls -l; docker run --rm arm64v8/python:3.7.10-stretch sh -c 'python3 -V; uname -m'
+          # https://github.com/docker/compose/blob/master/script/build/linux
+
+          git clone https://github.com/docker/compose.git
+          cd compose;
+
+          ./script/clean;
+          git checkout 1.28.5
+          DOCKER_COMPOSE_GITSHA="$(script/build/write-git-sha)";
+          echo ---- ${DOCKER_COMPOSE_GITSHA}
+          docker buildx build --platform linux/arm64 . \
+          --target bin \
+          --build-arg DISTRO=debian \
+          --build-arg GIT_COMMIT="${DOCKER_COMPOSE_GITSHA}" \
+          --output dist/ || : ;
+          ls -l dist;
+          docker run --platform linux/arm64 \
+            --rm -v $PWD/dist:/root/ \
+            arm64v8/python:3.7.10-stretch /root/docker-compose-linux-arm64 version;
+
+      - name: Upload bin directory
+        uses: actions/upload-artifact@main
+        if: steps.build.outcome == 'success'
+        with:
+          name: docker-compose-linux
+          path: compose/dist/
 
       # - name: Upload Artifact
       #   uses: actions/upload-artifact@master
