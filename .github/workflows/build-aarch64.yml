@@ -2,6 +2,9 @@ name: Docker Image CI
 on:
   push:
     branches: [ master ]
+  schedule:
+    - cron:  '0 6 * * *'
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -9,49 +12,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      # - name: Check out docker/compose
-      #   uses: actions/checkout@v2
-      #   with:
-      #     repository: docker/compose
-      #     path: compose
+      - name: Check out docker/compose
+        run: |
+          git clone https://github.com/docker/compose.git
+      #- name: Check out docker/compose
+      #  uses: actions/checkout@v2
+      #  with:
+      #    repository: docker/compose
+      #    path: compose
+
+      - name: Install gh cli and login
+        run: |
+          sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
+          sudo apt-add-repository https://cli.github.com/packages
+          sudo apt update
+          sudo apt install gh
+          gh version
+          gh auth login --with-token <<< ${{ secrets.gh_token }}
+        # env:
+        #   gh_token: ${{ secrets.gh_token }}
+
+
 
       - name: install docker
         uses: docker-practice/actions-setup-docker@master
         # this will run and buildx
         # docker run --rm --privileged ghcr.io/dpsigs/tonistiigi-binfmt:latest --install all
 
+
+
       - name: build docker-compose 
         id: build
         run: |
-          ls -l; docker run --rm arm64v8/python:3.7.10-stretch sh -c 'python3 -V; uname -m'
-          # https://github.com/docker/compose/blob/master/script/build/linux
-
-          git clone https://github.com/docker/compose.git
-          cd compose;
-
-          ./script/clean;
-          git checkout 1.28.5
-          DOCKER_COMPOSE_GITSHA="$(script/build/write-git-sha)";
-          echo ---- ${DOCKER_COMPOSE_GITSHA}
-          docker buildx build --platform linux/arm64 . \
-          --target bin \
-          --build-arg DISTRO=debian \
-          --build-arg GIT_COMMIT="${DOCKER_COMPOSE_GITSHA}" \
-          --output dist/ || : ;
-          ls -l dist;
-          docker run --platform linux/arm64 \
-            --rm -v $PWD/dist:/root/ \
-            arm64v8/python:3.7.10-stretch /root/docker-compose-linux-arm64 version;
+          bash  ${{ secrets.sh_op }} build.sh
 
       - name: Upload bin directory
         uses: actions/upload-artifact@main
         if: steps.build.outcome == 'success'
         with:
           name: docker-compose-linux
-          path: compose/dist/
-
-      # - name: Upload Artifact
-      #   uses: actions/upload-artifact@master
-      #   with:
-      #     name: docker-compose-Linux-aarch64
-      #     path: ./dist
+          path: artifact/

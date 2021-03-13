@@ -2,27 +2,37 @@
 
 # after action will run this script
 
-# docker-practice/actions-setup-docker@master will run the `ghcr.io/dpsigs/tonistiigi-binfmt:latest --install all`
-#docker run --rm --privileged ghcr.io/dpsigs/tonistiigi-binfmt:latest --install all
-# 
-#docker run --rm --privileged multiarch/qemu-user-static:register
-#https://github.com/multiarch/qemu-user-static
-#docker run --rm --privileged multiarch/qemu-user-static:register --reset
 
 readonly CUR_DIR=$(cd $(dirname ${BASH_SOURCE:-$0}); pwd)
 
 
-# 取当前时间的最后30个tag
-RELEASE_TAG_COUNT=30
-
-curl -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${GITHUB_REPOSITORY:=zhangguanzhang/docker-compose-aarch64}/releases?per_page=${RELEASE_TAG_COUNT}&page=1"
+# 取当前时间的最后3个tag
+RELEASE_TAG_COUNT=3
 
 dist_dir=${CUR_DIR:=.}/dist/
+artifact_dir=/tmp/artifact/
 
-mkdir ${dist_dir}
 
-while read tag;do
+mkdir ${dist_dir} ${artifact_dir} 
 
+(cd ${CUR_DIR}/compose; ls -al; ls -al .git; )
+
+curl  \
+  -H "Accept: application/vnd.github.v3+json"  \
+   "https://api.github.com/repos/docker/compose/releases?per_page=${RELEASE_TAG_COUNT}" |  \
+   jq -r ' .[] | "\(.name) \(.prerelease)"' | tac
+
+curl  \
+  -H "Accept: application/vnd.github.v3+json"  \
+   "https://api.github.com/repos/docker/compose/releases?per_page=${RELEASE_TAG_COUNT}" |  \
+   jq -r ' .[] | "\(.name) \(.prerelease)"' | tac > /tmp/release_info
+
+while read tag pre;do
+
+    if gh release list -R ${GITHUB_REPOSITORY} -L ${RELEASE_TAG_COUNT} | awk '{print $1}' | grep -w $tag;then
+        continue
+    fi
+    echo "start build for $tag"
     rm -rf ${dist_dir}/*
     cd ${CUR_DIR}/compose
     git checkout $tag;
@@ -44,16 +54,20 @@ while read tag;do
     docker run --platform linux/arm64 \
     --rm -v $PWD/dist:/root/ \
     arm64v8/python:3.7.10-stretch /root/docker-compose-linux-arm64 version;
-    cp dist/* ${CUR_DIR}/dist/
+    cp dist/* ${dist_dir}/
+    cp dist/* ${artifact_dir}
+    rm -rf ${CUR_DIR}/compose/dist/*
+
+    if [ "$pre" == "true" ];then
+        gh release create -R ${GITHUB_REPOSITORY} --prerelease "$tag" ${dist_dir}/* --title ""
+    else
+        gh release create -R ${GITHUB_REPOSITORY} "$tag" ${dist_dir}/* --title ""
+    fi
 
     cd ${CUR_DIR}
-done <( git --work-tree ${CUR_DIR}/compose tag --sort=committerdate  | tail -n -${RELEASE_TAG_COUNT} )
 
 
-
-func create_release(){
-    local version=$1 prerelease=$2
-    echo "Creating a new release on GitHub"
-    API_JSON=$(printf '{"tag_name": "%s","target_commitish": "master","name": "%s","body": "Release of version %s","draft": false,"prerelease": %s}' $NEWVERSION $NEWVERSION $NEWVERSION)
-    curl --data "$API_JSON" https://api.github.com/repos/${GITHUB_REPOSITORY}/releases?access_token=${ACCESSTOKEN}
-}
+done < /tmp/release_info
+# <( git --work-tree ${CUR_DIR}/compose tag --sort=committerdate  | tail -n -${RELEASE_TAG_COUNT} )
+# gh release cannot list sort by commit time
+# done < <(  gh release list -R docker/compose -L 30 | awk '{print $1}' )
