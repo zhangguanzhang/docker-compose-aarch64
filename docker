@@ -1,7 +1,0 @@
-#!/bin/bash
-
-DOCKER=/usr/bin/docker_old
-
-if [ "$1" == "build" ];then
-    
-fi
