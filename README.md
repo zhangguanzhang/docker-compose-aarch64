@@ -21,6 +21,18 @@ ID="kylin"
 VERSION_ID="V10"
 PRETTY_NAME="Kylin Linux Advanced Server V10 (Tercel)"
 ANSI_COLOR="0;31"
+------------------
+$ cat /etc/os-release 
+NAME="Kylin"
+VERSION="4.0.2 (juniper)"
+ID=kylin
+ID_LIKE=debian
+PRETTY_NAME="Kylin 4.0.2"
+VERSION_ID="4.0.2"
+HOME_URL="http://www.kylinos.cn/"
+SUPPORT_URL="http://www.kylinos.cn/content/service/service.html"
+BUG_REPORT_URL="http://www.kylinos.cn/"
+UBUNTU_CODENAME=juniper
 ```
 
 docker 版本信息
@@ -93,7 +105,8 @@ drwxr-xr-x 2 root root       26  3月 13 11:11 conf.d
 -rwxr-xr-x 1 root root 10750256  3月 12 13:15 docker-compose-linux-arm64
 -rw-r--r-- 1 root root      389  3月 13 11:11 docker-compose.yml
 drwxr-xr-x 2 root root        6  3月 13 11:11 down
-$ cat conf.d/default.conf 
+$ mkdir -p conf.d down
+$ cat > conf.d/default.conf << EOF
 server {
     listen       81;
     server_name  localhost;
@@ -106,7 +119,8 @@ server {
     location = /50x.html {
         root   /usr/share/nginx/html;
     }
-
+}
+EOF
 $ cat docker-compose.yml 
 version: '3.4'
 services:
@@ -124,7 +138,6 @@ services:
       options:
         max-file: '3'
         max-size: 100m
-$ mkdir conf.d
 
 $ ./docker-compose-linux-arm64 up -d
 Pulling nginx (nginx:alpine)...
