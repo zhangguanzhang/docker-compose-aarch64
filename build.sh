@@ -32,6 +32,9 @@ while read tag pre;do
     if gh release list -R ${GITHUB_REPOSITORY} -L ${RELEASE_TAG_COUNT} | awk '{print $1}' | grep -w $tag;then
         continue
     fi
+    if ! echo $tag | grep -Pq '^1\.\d{2}\.\d';then
+        continue
+    fi
     echo "start build for $tag"
     rm -rf ${dist_dir}/*
     cd ${CUR_DIR}/compose
@@ -50,7 +53,12 @@ while read tag pre;do
     --build-arg DISTRO=debian \
     --build-arg GIT_COMMIT="${DOCKER_COMPOSE_GITSHA}" \
     --output dist/ || : ;
-    ls -l dist;
+    ls -l dist || {
+        echo build $tag failed
+        continue
+
+
+    }
     docker run --platform linux/arm64 \
     --rm -v $PWD/dist:/root/ \
     arm64v8/python:3.7.10-stretch /root/docker-compose-linux-arm64 version;

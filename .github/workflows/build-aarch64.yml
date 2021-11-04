@@ -52,3 +52,9 @@ jobs:
         with:
           name: docker-compose-linux
           path: artifact/
+
+      - name: Delete workflow runs
+        uses: GitRML/delete-workflow-runs@main
+        with:
+          retain_days: 10
+          keep_minimum_runs: 10

@@ -5,6 +5,8 @@ git 上搜索了很多 docker-compose 的 arm64 的编译基本都是使用 `qem
 
 编译过程看 compose 仓库的 makefile，是运行的 https://github.com/docker/compose/blob/master/script/build/linux 这个脚本。所以克隆 compose 仓库后进目录里，然后 checkout 指定 tag。官方的编译过程都是在 docker build 产生的容器里去编译的。最后有个 build --output就是直接把文件给整出来。我这里是用的 buildx 去替代 build 编译。我仓库整个自动化同步官方 tag checkout 去编译。
 
+** docker-compose v2 已经用 golang 重写了并提供不同架构文件，本仓库只编译 `^1\.\d{2}\.\d` 的 tag **
+
 ## 测试 
 
 ### 环境信息
